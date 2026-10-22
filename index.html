@@ -1,0 +1,525 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BattMon — заряд беспроводных устройств в трее Windows</title>
+<meta name="description" content="BattMon показывает заряд Bluetooth-мышей, клавиатур и наушников иконкой в трее Windows и предупреждает о низком заряде. Без опроса по таймеру, без интернета.">
+<meta property="og:title" content="BattMon — заряд беспроводных устройств в трее Windows">
+<meta property="og:description" content="Иконка заряда для каждой мыши, клавиатуры и наушников. Windows 10 и 11.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='9' width='24' height='14' rx='3' fill='none' stroke='%23888' stroke-width='2.5'/%3E%3Crect x='26' y='13' width='4' height='6' rx='1' fill='%23888'/%3E%3Crect x='5' y='12' width='14' height='8' rx='1' fill='%2358ba40'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f3f3f3;--surface:#fff;--text:#1a1a1a;--muted:#5f5f5f;--line:#d9d9d9;--accent:#0f6cbd;--soft:#5798d1;--track:#e6e6e6;--glyph-bg:#f0f0f0;--ctl:#7a7a7a;--knob:#5f5f5f;--taskbar:#ededed;--taskbar-ink:#1f1f1f;--font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif}
+[data-theme=dark]{--bg:#202020;--surface:#272727;--text:#f2f2f2;--muted:#a8a8a8;--line:#3a3a3a;--accent:#4cc2ff;--soft:#439bc9;--track:#3c3c3c;--glyph-bg:#343434;--ctl:#9a9a9a;--knob:#c8c8c8;--taskbar:#1c1c1c;--taskbar-ink:#f2f2f2}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+
+html, body {
+  overflow-x: clip;
+  max-width: 100vw;
+}
+
+body{background:var(--bg);color:var(--text);font:400 1rem/1.6 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+.wrap{max-width:62rem;margin:0 auto;padding:0 1.5rem}
+
+header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:1.5rem;height:3.5rem}
+
+.brand{
+  display:flex;align-items:center;gap:.6rem;font-weight:600;color:var(--text);text-decoration:none;margin-right:auto;
+  transition: opacity .15s ease, transform .1s ease;
+}
+.brand:hover{opacity:.8}
+.brand:active{transform:translateY(1px)}
+
+nav{
+  display:flex;
+  gap:.5rem;
+  font-size:.9rem;
+  flex-shrink:0;
+  overflow-x:auto;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  max-width: 60%;
+}
+nav::-webkit-scrollbar{display:none}
+nav a{
+  color:var(--muted);text-decoration:none;
+  padding:.35rem .6rem;
+  border-radius:6px;
+  transition: color .15s ease, background-color .15s ease, transform .1s ease;
+  white-space: nowrap;
+}
+nav a:hover{color:var(--text);background-color:var(--glyph-bg)}
+nav a:active{background-color:var(--line);transform:translateY(1px)}
+
+.theme{
+  font:inherit;font-size:.85rem;color:var(--text);background:none;border:1px solid var(--line);border-radius:6px;padding:.3rem .7rem;cursor:pointer;
+  min-width: 7.5rem;
+  text-align: center;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+.theme:hover{background-color:var(--glyph-bg);border-color:var(--ctl)}
+.theme:active{background-color:var(--line);transform:translateY(1px)}
+
+.reveal{
+  opacity:0;
+  transform:translateY(24px);
+  transition: opacity .6s ease, transform .6s ease;
+}
+.reveal.visible{
+  opacity:1;
+  transform:translateY(0);
+}
+
+.hero{display:grid;grid-template-columns:1fr 23.5rem;gap:3.5rem;align-items:center;padding:4.5rem 0 5rem}
+h1{font-size:clamp(1.75rem,4vw,2.4rem);line-height:1.2;font-weight:600;letter-spacing:-.01em;margin-bottom:1.2rem}
+.lead{color:var(--muted);font-size:1.1rem;max-width:34rem;margin-bottom:1.8rem}
+
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 1 auto;
+  width:auto;
+  min-width: max-content;
+  text-align:center;
+  font:600 .95rem var(--font);
+  padding:.65rem 1.3rem;
+  border-radius:6px;
+  border:1px solid var(--accent);
+  background:var(--accent);
+  color:var(--bg);
+  text-decoration:none;
+  cursor:pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+  user-select: none;
+}
+.btn:hover{
+  background-color: color-mix(in srgb, var(--accent), white 15%);
+  border-color: color-mix(in srgb, var(--accent), white 15%);
+}
+.btn:active{
+  background-color: color-mix(in srgb, var(--accent), black 15%);
+  border-color: color-mix(in srgb, var(--accent), black 15%);
+  transform: translateY(1px);
+}
+
+.btn.alt{background:none;color:var(--text);border-color:var(--line)}
+.btn.alt:hover{background-color:var(--glyph-bg);border-color:var(--ctl)}
+.btn.alt:active{background-color:var(--line);transform:translateY(1px)}
+
+.btn[aria-disabled=true]{opacity:.55;pointer-events:none}
+.actions{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-start}
+
+.download-count{
+  font-size:.85rem;
+  font-weight:400;
+  opacity:0;
+  margin-left:.4rem;
+  transition: opacity .3s ease;
+}
+.download-count.loaded{
+  opacity:.75;
+}
+
+.note{margin-top:1rem;font-size:.85rem;color:var(--muted)}
+
+.win{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.12); width: 100%; max-width: 100%;}
+.win-title{font-size:.8rem;padding:.55rem .9rem;background:var(--bg);border-bottom:1px solid var(--line)}
+.win h2{font-size:.95rem;font-weight:600;padding:.7rem 1rem .5rem}
+.row{display:flex;align-items:center;gap:.75rem;padding:.65rem 1rem;border-top:1px solid var(--line)}
+.dot{flex:none;width:2rem;height:2rem;border-radius:50%;background:var(--glyph-bg);display:grid;place-items:center}
+.row-main{flex:1;min-width:0}
+.row-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+.row-name{font-size:.82rem;font-weight:600}
+.row-pct{font-size:1rem;font-weight:600}
+.row-sub{font-size:.75rem;color:var(--muted)}
+.bar{height:4px;border-radius:2px;background:var(--track);margin-top:.35rem;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px;transition:width .25s,background .25s}
+.sw{flex:none;position:relative;width:36px;height:20px;border:1px solid var(--ctl);border-radius:10px}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:var(--knob)}
+.sw.on{background:var(--soft)}
+.sw.on::after{left:19px}
+.demo{margin-top:1.25rem;display:grid;gap:.9rem; width: 100%; max-width: 100%;}
+
+.picker{display:flex;flex-wrap:wrap;gap:.4rem}
+.picker button{
+  display:grid;place-items:center;width:2.4rem;height:2.4rem;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--text);cursor:pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+  user-select: none;
+}
+.picker button:hover{background-color:var(--glyph-bg);border-color:var(--ctl)}
+.picker button:active{background-color:var(--line);transform:translateY(1px)}
+.picker button[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+
+.slide{display:flex;align-items:center;gap:.8rem;font-size:.85rem;color:var(--muted)}
+.slide input{flex:1;accent-color:var(--accent)}
+.slide output{min-width:2.6rem;text-align:right;color:var(--text);font-weight:600}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.tb{display:flex;align-items:center;justify-content:center;gap:1.1rem;height:3.4rem;border-radius:6px;background:var(--taskbar);color:var(--taskbar-ink);border:1px solid var(--line)}
+.tb.dark{--taskbar:#1c1c1c;--taskbar-ink:#f2f2f2}
+.tb.light{--taskbar:#ededed;--taskbar-ink:#1f1f1f}
+
+section{padding:4rem 0;border-top:1px solid var(--line)}
+h2.t{font-size:1.7rem;font-weight:600;letter-spacing:-.01em;margin-bottom:.8rem}
+.sub{color:var(--muted);max-width:38rem;margin-bottom:2.2rem}
+dl.feat{display:grid;grid-template-columns:14rem 1fr;gap:1.4rem 2.5rem;max-width:50rem}
+dl.feat dt{font-weight:600}
+dl.feat dd{color:var(--muted)}
+.icons{display:grid;grid-template-columns:repeat(6,1fr);gap:.6rem;max-width:50rem; width: 100%;}
+.icons figure{display:grid;gap:.5rem;justify-items:center;font-size:.8rem;color:var(--muted)}
+.icons .tb{width:100%;height:3.4rem;flex-direction:column;gap:.2rem;padding:.4rem 0}
+.facts{max-width:44rem;display:grid;gap:.8rem}
+.facts li{list-style:none;padding-left:1.2rem;position:relative;color:var(--muted)}
+.facts li::before{content:"";position:absolute;left:0;top:.7em;width:.5rem;height:2px;background:var(--accent)}
+.facts b{color:var(--text);font-weight:600}
+details{max-width:44rem;border-bottom:1px solid var(--line);padding:.9rem 0}
+details summary{cursor:pointer;font-weight:600; transition: color .15s ease;}
+details summary:hover{color:var(--accent)}
+details p{color:var(--muted);margin-top:.5rem}
+.pay{display:flex;gap:2.5rem;flex-wrap:wrap;align-items:flex-start}
+.pay>div{max-width:24rem; width: 100%;}
+.pay h3{font-size:1.05rem;font-weight:600;margin-bottom:.4rem}
+.pay p{color:var(--muted);margin-bottom:1rem}
+
+.email-box{
+  display:inline-flex;
+  align-items:center;
+  gap:.6rem;
+  padding:.45rem .5rem .45rem .8rem;
+  background:var(--glyph-bg);
+  border:1px solid var(--line);
+  border-radius:6px;
+  font-family:"Cascadia Code","Consolas",monospace;
+  font-size:.9rem;
+  max-width:100%;
+}
+.email-box span{
+  color:var(--text);
+  word-break:break-all;
+  user-select:all;
+}
+.copy-btn{
+  flex:none;
+  width:2rem;
+  height:2rem;
+  display:grid;
+  place-items:center;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:4px;
+  cursor:pointer;
+  color:var(--muted);
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease, transform .1s ease;
+  user-select: none;
+}
+.copy-btn:hover{
+  color:var(--text);
+  border-color:var(--ctl);
+  background-color:var(--glyph-bg);
+}
+.copy-btn:active{
+  background-color:var(--line);
+  transform:translateY(1px);
+}
+.copy-btn.copied{
+  color:var(--accent);
+  border-color:var(--accent);
+  background-color:var(--surface);
+}
+.copy-btn svg{width:1rem;height:1rem;display:block}
+
+footer{border-top:1px solid var(--line);padding:2rem 0;font-size:.85rem;color:var(--muted)}
+
+@media(max-width:64rem){
+  .wrap {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  
+  .hero{
+    grid-template-columns:1fr;
+    gap:2.5rem;
+    padding:2.5rem 0 3.5rem;
+  }
+  
+  .hero > div {
+    width: 100%;
+    min-width: 0; 
+  }
+  
+  dl.feat{grid-template-columns:1fr;gap:.2rem}
+  dl.feat dd{margin-bottom:1rem}
+  .icons{grid-template-columns:repeat(3,1fr)}
+  .bars{grid-template-columns:1fr}
+  
+  .actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+@media(max-width:30rem){
+  nav{display:none}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+<a class="brand" href="#top"><svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="9" width="24" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2.5" opacity=".55"/><rect x="26" y="13" width="4" height="6" rx="1" fill="currentColor" opacity=".55"/><rect x="5" y="12" width="14" height="8" rx="1" fill="#58ba40"/></svg>BattMon</a>
+<nav><a href="#features">Возможности</a><a href="#icons">Иконки</a><a href="#faq">Вопросы</a><a href="#support">Поддержать</a></nav>
+<button class="theme" id="theme" type="button">Тема</button>
+</div></header>
+
+<main id="top">
+<div class="wrap hero">
+<div>
+<h1>Заряд Bluetooth-мыши, клавиатуры и наушников&nbsp;— в&nbsp;системном трее Windows</h1>
+<p class="lead">BattMon отображает заряд подключённых Bluetooth-устройств в системном трее рядом с часами и заранее предупреждает, когда их пора зарядить. Приложение реагирует на системные события Windows и не опрашивает устройства по таймеру.</p>
+<div class="actions">
+  <a class="btn" data-link="download" href="#">
+    Скачать для Windows
+    <span class="download-count" id="download-count"></span>
+  </a>
+</div>
+<p class="note">Windows 10 и 11. Установка без прав администратора.</p>
+</div>
+<div>
+<div class="win" aria-label="Пример окна программы">
+<div class="win-title">BattMon</div>
+<h2>Устройства</h2>
+<div class="row"><span class="dot" id="d-dot"></span><div class="row-main"><div class="row-head"><span class="row-name" id="d-name">Мышь</span><span class="row-pct" id="d-pct">53%</span></div><div class="row-sub">подключено · изменено 12 мин назад</div><div class="bar"><i id="d-bar"></i></div></div><span class="sw on"></span></div>
+<div class="row"><span class="dot" id="k-dot"></span><div class="row-main"><div class="row-head"><span class="row-name">Клавиатура</span><span class="row-pct">100%</span></div><div class="row-sub">подключено · не менялось с запуска</div><div class="bar"><i id="k-bar" style="width:100%"></i></div></div><span class="sw"></span></div>
+</div>
+<div class="demo">
+<div class="picker" id="picker" role="group" aria-label="Тип устройства"></div>
+<label class="slide">Заряд<input id="slider" type="range" min="1" max="100" value="53"><output id="out" aria-live="polite">53%</output></label>
+<div class="bars"><div class="tb light" id="tb-l"></div><div class="tb dark" id="tb-d"></div></div>
+</div>
+</div>
+</div>
+
+<section id="features" class="reveal"><div class="wrap">
+<h2 class="t">Возможности BattMon</h2>
+<p class="sub">Выберите устройства для отслеживания один раз — BattMon будет работать в фоне и напомнит о низком заряде.</p>
+<dl class="feat">
+<dt>Bluetooth и Bluetooth LE</dt><dd>Следите за зарядом мышей, клавиатур, наушников и геймпадов — если уровень заряда доступен в Windows.</dd>
+<dt>Иконка для каждого устройства</dt><dd>Настройте отдельную иконку для каждого устройства и выберите удобный вид: процент заряда или значок с батареей.</dd>
+<dt>Предупреждения о низком заряде</dt><dd>BattMon напомнит о зарядке, когда уровень заряда опустится ниже заданного значения. Порог можно настроить для всех устройств сразу или для каждого отдельно.</dd>
+<dt>Время последнего изменения</dt><dd>Проверяйте актуальность данных: в списке видно время последнего изменения заряда, а при наведении на иконку — точное время.</dd>
+<dt>Светлая и тёмная тема</dt><dd>Приложение выглядит органично в светлой и тёмной теме Windows, а иконки в трее остаются заметными на панели задач.</dd>
+<dt>Автозапуск</dt><dd>Включите автозапуск, чтобы BattMon всегда следил за зарядом в фоне. Закрыть окно можно безопасно: приложение продолжит работать.</dd>
+</dl>
+</div></section>
+
+<section id="icons" class="reveal"><div class="wrap">
+<h2 class="t">Заряд с первого взгляда</h2>
+<p class="sub">Иконка состоит из двух частей: слева показан тип устройства, справа — индикатор батареи. Цвет батареи меняется от красного к зелёному в зависимости от уровня заряда. Контур иконки подстраивается под светлую или тёмную панель задач.</p>
+<div class="icons" id="gallery"></div>
+</div></section>
+
+<section id="how" class="reveal"><div class="wrap">
+<h2 class="t">Как это работает</h2>
+<ul class="facts">
+<li><b>Заряд берётся из Windows.</b> Приложение обновляет данные о заряде, когда Windows сообщает об изменениях.</li>
+<li><b>Прямое чтение BLE включается отдельно.</b> Для некоторых устройств доступно дополнительное прямое чтение заряда по Bluetooth Low Energy.</li>
+<li><b>Без интернета.</b> BattMon работает без интернета и хранит настройки только на компьютере.</li>
+<li><b>Поддержка устройств с отдельным USB-приёмником 2,4 ГГц появится позже.</b></li>
+</ul>
+</div></section>
+
+<section id="faq" class="reveal"><div class="wrap">
+<h2 class="t">Вопросы</h2>
+<details><summary>Windows предупреждает о потенциальной угрозе при запуске установщика. Это нормально?</summary><p>Пока установщик не подписан цифровой подписью, Windows может показать предупреждение SmartScreen. Скачивайте установщик только с официальной страницы BattMon.</p></details>
+<details><summary>Нужны ли права администратора?</summary><p>Нет. По умолчанию BattMon устанавливается только для текущего пользователя и не требует прав администратора. При необходимости в установщике можно выбрать установку для всех пользователей компьютера.</p></details>
+<details><summary>Почему у колонки или телефона не отображается заряд?</summary><p>BattMon показывает уровень заряда, который устройство передаёт в Windows. Если Windows не получает эту информацию, приложение не сможет её отобразить.</p></details>
+<details><summary>Как удалить программу?</summary><p>В поиске Windows напишите «Установка и удаление программ», найдите BattMon в списке и выберите «Удалить». Во время удаления установщик предложит сохранить или удалить настройки приложения</p></details>
+</div></section>
+
+<section id="support" class="reveal"><div class="wrap">
+<h2 class="t">Поддержать проект</h2>
+<p class="sub">BattMon распространяется бесплатно. Поддержка помогает развивать приложение и добавлять поддержку новых устройств. О предложениях и ошибках можно сообщить по почте.</p>
+<div class="pay">
+<div><h3>Донат</h3><p>Поддержка поможет добавить новые устройства, улучшить отображение заряда и развивать BattMon дальше.</p><a class="btn" data-link="cloudtips" href="#" target="_blank" rel="noopener">Поддержать через CloudTips</a></div>
+<div><h3>Пожелания и ошибки</h3><p>Расскажите, что не работает или чего не хватает. Для проверки совместимости пригодятся модель устройства, способ подключения и информация о заряде в Windows.</p>
+<div class="email-box">
+<span id="email-text">swoozyee@icloud.com</span>
+<button class="copy-btn" id="copy-btn" type="button" aria-label="Скопировать email">
+<svg id="copy-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<rect x="5.5" y="5.5" width="7" height="8" rx="1"/>
+<path d="M3.5 10.5V4a1 1 0 0 1 1-1h6.5"/>
+</svg>
+</button>
+</div>
+</div></section>
+</main>
+<script>
+const LINKS = {
+  download: "https://github.com/swoozyee/battmon/releases/latest/download/BattMon-Installer.exe",
+  cloudtips: "https://pay.cloudtips.ru/p/613aba4c"
+};
+const G = {
+  mouse:{n:"Мышь",c:'<path d="M8 1.5A4.5 4.5 0 0 0 3.5 6V10A4.5 4.5 0 0 0 8 14.5M3.5 7.5H8M7.5 2.5V5.5"/>'},
+  keyboard:{n:"Клавиатура",c:'<path d="M8 3.5H2.5A2 2 0 0 0 .5 5.5V11.5A2 2 0 0 0 2.5 13.5H8M3 5.5h1M6 5.5h1M3 7.5h1M6 7.5h1M3 9.5h1M6 9.5h1M5 11.5H8"/>'},
+  headphones:{n:"Наушники",c:'<path d="M8 2A5 5 0 0 0 3 7V8.5"/><rect x="1.5" y="8.5" width="3" height="5" rx="1"/>'},
+  gamepad:{n:"Геймпад",c:'<path d="M8 3.5H4.5A4 4 0 0 0 .5 7.5V10A2.2 2.2 0 0 0 4.9 10.5L6 9.5H8"/>',l:'<path d="M3 6.5H6M4.5 5V8"/>',r:'<path d="M11 5.5h1M10 6.5h1M12 6.5h1M11 7.5h1"/>'},
+  speaker:{n:"Колонка",c:'<path d="M8 1.5H5.5A2 2 0 0 0 3.5 3.5V12.5A2 2 0 0 0 5.5 14.5H8M8 7A2.5 2.5 0 0 0 8 12M8 3.5A1 1 0 0 0 8 5.5"/>'},
+  phone:{n:"Телефон",c:'<path d="M8 1.5H6A1.5 1.5 0 0 0 4.5 3V13A1.5 1.5 0 0 0 6 14.5H8M6.5 3.5H8M6.5 12.5H8"/>'}
+};
+const STOPS = {light:[[217,58,43],[224,161,0],[47,179,68]], dark:[[240,97,74],[230,180,40],[76,217,100]]};
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+const isDark = () => root.dataset.theme === "dark";
+const svg = (s, inner) => `<svg viewBox="0 0 16 16" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+const mirror = c => `<g transform="translate(16 0) scale(-1 1)">${c}</g>`;
+const full = (k, s) => { const g = G[k]; return svg(s, g.c + (g.l||"") + mirror(g.c) + (g.r||"")); };
+function color(p, dark) {
+  const s = STOPS[dark ? "dark" : "light"], mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  return `rgb(${p <= 30 ? mix(s[0], s[1], p / 30) : mix(s[1], s[2], (p - 30) / 70)})`;
+}
+function tray(k, s, p, dark) {
+  const g = G[k], rows = Math.max(1, Math.min(11, Math.floor((p * 11 + 50) / 100)));
+  return svg(s, g.c + (g.l||"") + '<rect x="10.5" y="2.5" width="5" height="12" rx="1"/><rect x="12" y="1" width="2" height="1" fill="currentColor" stroke="none"/>'
+    + `<rect x="11" y="${14 - rows}" width="4" height="${rows}" fill="${color(p, dark)}" stroke="none"/>`);
+}
+let kind = "mouse";
+function draw() {
+  const p = +$("slider").value, d = isDark();
+  $("out").textContent = p + "%"; $("d-pct").textContent = p + "%"; $("d-name").textContent = G[kind].n;
+  $("d-bar").style.width = p + "%"; $("d-bar").style.background = color(p, d);
+  $("k-bar").style.background = color(100, d);
+  $("d-dot").innerHTML = full(kind, 16); $("k-dot").innerHTML = full("keyboard", 16);
+  $("tb-l").innerHTML = tray(kind, 32, p, false) + tray(kind, 16, p, false);
+  $("tb-d").innerHTML = tray(kind, 32, p, true) + tray(kind, 16, p, true);
+  const demo = [53, 100, 14, 71, 30, 90];
+  $("gallery").innerHTML = Object.keys(G).map((k, i) =>
+    `<figure><div class="tb ${d ? "dark" : "light"}">${tray(k, 24, demo[i], d)}</div>${G[k].n}, ${demo[i]}%</figure>`).join("");
+}
+$("picker").innerHTML = Object.keys(G).map(k =>
+  `<button type="button" data-kind="${k}" aria-pressed="${k === kind}" aria-label="${G[k].n}" title="${G[k].n}">${full(k, 18)}</button>`).join("");
+$("picker").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  kind = b.dataset.kind;
+  document.querySelectorAll("#picker button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  draw();
+});
+$("slider").addEventListener("input", draw);
+function setTheme(t) {
+  root.dataset.theme = t; $("theme").textContent = t === "dark" ? "Светлая тема" : "Тёмная тема";
+  try { localStorage.setItem("battmon-theme", t); } catch (e) {}
+  draw();
+}
+let saved = null; try { saved = localStorage.getItem("battmon-theme"); } catch (e) {}
+setTheme(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+$("theme").addEventListener("click", () => setTheme(isDark() ? "light" : "dark"));
+document.querySelectorAll("[data-link]").forEach(a => {
+  const k = a.dataset.link, v = LINKS[k];
+  if (!v) { a.setAttribute("aria-disabled", "true"); a.removeAttribute("href"); a.title = "Ссылка появится при выпуске"; }
+  else a.href = v;
+});
+
+const ICON_COPY = '<rect x="5.5" y="5.5" width="7" height="8" rx="1"/><path d="M3.5 10.5V4a1 1 0 0 1 1-1h6.5"/>';
+const ICON_OK = '<path d="M3 8.5l3 3 7-7"/>';
+
+$("copy-btn").addEventListener("click", async () => {
+  const email = $("email-text").textContent;
+  const btn = $("copy-btn");
+  const icon = $("copy-icon");
+  try {
+    await navigator.clipboard.writeText(email);
+    icon.innerHTML = ICON_OK;
+    btn.classList.add("copied");
+    btn.setAttribute("aria-label", "Скопировано");
+    setTimeout(() => {
+      icon.innerHTML = ICON_COPY;
+      btn.classList.remove("copied");
+      btn.setAttribute("aria-label", "Скопировать email");
+    }, 1800);
+  } catch (err) {
+    const ta = document.createElement("textarea");
+    ta.value = email;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      icon.innerHTML = ICON_OK;
+      btn.classList.add("copied");
+      setTimeout(() => {
+        icon.innerHTML = ICON_COPY;
+        btn.classList.remove("copied");
+      }, 1800);
+    } catch (e) {
+      alert("Не удалось скопировать. Email: " + email);
+    }
+    document.body.removeChild(ta);
+  }
+});
+
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add("visible");
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, {
+  threshold: 0.1,
+  rootMargin: "0px 0px -60px 0px"
+});
+
+document.querySelectorAll(".reveal").forEach(el => revealObserver.observe(el));
+
+async function loadDownloadCount() {
+  const el = $("download-count");
+  if (!el) return;
+  
+  try {
+    const apiUrl = "https://api.github.com/repos/swoozyee/battmon/releases";
+    const res = await fetch(apiUrl);
+    
+    if (!res.ok) throw new Error("API error");
+    
+    const releases = await res.json();
+    
+    const total = releases.reduce((sum, release) => {
+      const releaseDownloads = release.assets.reduce((assetSum, asset) => assetSum + asset.download_count, 0);
+      return sum + releaseDownloads;
+    }, 0);
+    
+    console.log(`[BattMon] Всего скачиваний за всё время: ${total}`);
+    
+    if (total > 100) {
+      el.textContent = `· ${total.toLocaleString("ru-RU")} скачиваний`;
+      el.classList.add("loaded");
+    } else {
+      el.classList.remove("loaded");
+    }
+  } catch (err) {
+    console.warn("[BattMon] Не удалось получить счётчик скачиваний:", err);
+  }
+}
+
+loadDownloadCount();
+</script>
+</body>
+</html>
